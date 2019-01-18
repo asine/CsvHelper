@@ -1,24 +1,48 @@
-﻿// Copyright 2009-2015 Josh Close and Contributors
+﻿// Copyright 2009-2019 Josh Close and Contributors
 // This file is a part of CsvHelper and is dual licensed under MS-PL and Apache 2.0.
 // See LICENSE.txt for details or visit http://www.opensource.org/licenses/ms-pl.html for MS-PL and http://opensource.org/licenses/Apache-2.0 for Apache 2.0.
-// http://csvhelper.com
+// https://github.com/JoshClose/CsvHelper
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using CsvHelper.Configuration;
 using CsvHelper.Tests.Mocks;
-#if WINRT_4_5
-using Microsoft.VisualStudio.TestPlatform.UnitTestFramework;
-#else
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-#endif
 
 namespace CsvHelper.Tests
 {
 	[TestClass]
 	public class CsvReaderMappingTests
 	{
-		[TestMethod]
+        [TestMethod]
+	    public void ReadWithConvertUsingTest()
+	    {
+	        var data = new List<string[]>
+	        {
+	            new[] { "int2", "string.3" },
+	            new[] { "1", "one" },
+	            new[] { "2", "two" },
+	            null
+	        };
+
+	        var queue = new Queue<string[]>(data);
+	        var parserMock = new ParserMock(queue);
+
+	        var csvReader = new CsvReader(parserMock);
+	        // csvReader.Configuration.HeaderValidated = (isValid, headerNames, headerNameIndex, context) => {};
+	        csvReader.Configuration.RegisterClassMap<ConvertUsingClassMap>();
+
+	        var records = csvReader.GetRecords<MultipleNamesClass>().ToList();
+
+	        Assert.IsNotNull(records);
+	        Assert.AreEqual(2, records.Count);
+	        Assert.AreEqual(1, records[0].IntColumn);
+	        Assert.AreEqual("one", records[0].StringColumn);
+	        Assert.AreEqual(2, records[1].IntColumn);
+	        Assert.AreEqual("two", records[1].StringColumn);
+	    }
+
+        [TestMethod]
 		public void ReadMultipleNamesTest()
 		{
 			var data = new List<string[]>
@@ -43,23 +67,6 @@ namespace CsvHelper.Tests
 			Assert.AreEqual( "one", records[0].StringColumn );
 			Assert.AreEqual( 2, records[1].IntColumn );
 			Assert.AreEqual( "two", records[1].StringColumn );
-		}
-
-		[TestMethod]
-		public void ConstructUsingTest()
-		{
-			var queue = new Queue<string[]>();
-			queue.Enqueue( new[] { "1" } );
-			var parserMock = new ParserMock( queue );
-
-			var csvReader = new CsvReader( parserMock );
-			csvReader.Configuration.HasHeaderRecord = false;
-			csvReader.Configuration.RegisterClassMap<ConstructorMappingClassMap>();
-
-			csvReader.Read();
-			var record = csvReader.GetRecord<ConstructorMappingClass>();
-
-			Assert.AreEqual( "one", record.StringColumn );
 		}
 
 		[TestMethod]
@@ -99,6 +106,29 @@ namespace CsvHelper.Tests
 
 			var records = csvReader.GetRecords<CovarianceClass>().ToList();
 		}
+
+		// Not possible anymore.
+		//[TestMethod]
+		//public void ConvertUsingContravarianceTest()
+		//{
+		//	var queue = new Queue<string[]>();
+		//	queue.Enqueue( new string[] { "1", "2" } );
+		//	queue.Enqueue( null );
+
+		//	var parserMock = new ParserMock( queue );
+
+		//	var csvReader = new CsvReader( parserMock );
+		//	csvReader.Configuration.HasHeaderRecord = false;
+
+		//	try
+		//	{
+		//		csvReader.Configuration.RegisterClassMap<ContravarianceClassMap>();
+		//		Assert.Fail();
+		//	}
+		//	catch( CsvConfigurationException )
+		//	{
+		//	}
+		//}
 
 		[TestMethod]
 		public void ConvertUsingBlockTest()
@@ -162,18 +192,86 @@ namespace CsvHelper.Tests
 			Assert.AreEqual( 1, records.Count );
 		}
 
-		private class CovarianceClass
+		[TestMethod]
+		public void OptionalWithExistingColumnTest()
+		{
+		    var data = new List<string[]>
+		    {
+		        new[] { "int", "string" },
+		        new[] { "1", "one" },
+		        new[] { "2", "two" },
+		        null
+		    };
+		
+		    var queue = new Queue<string[]>(data);
+		    var parserMock = new ParserMock(queue);
+		
+		    var csvReader = new CsvReader(parserMock);
+		    csvReader.Configuration.RegisterClassMap<OptionalFieldClassMap>();
+		
+		    var records = csvReader.GetRecords<MultipleNamesClass>().ToList();
+		
+		    Assert.IsNotNull(records);
+		    Assert.AreEqual(2, records.Count);
+		    Assert.AreEqual(1, records[0].IntColumn);
+		    Assert.AreEqual("one", records[0].StringColumn);
+		    Assert.AreEqual(2, records[1].IntColumn);
+		    Assert.AreEqual("two", records[1].StringColumn);
+        }
+
+        [TestMethod]
+        public void OptionalWithMissingColumnTest()
+        {
+            var data = new List<string[]>
+            {
+                new[] { "string" },
+                new[] { "one" },
+                new[] { "two" },
+                null
+            };
+
+            var queue = new Queue<string[]>(data);
+            var parserMock = new ParserMock(queue);
+
+            var csvReader = new CsvReader(parserMock);
+            csvReader.Configuration.RegisterClassMap<OptionalFieldClassMap>();
+
+            var records = csvReader.GetRecords<MultipleNamesClass>().ToList();
+
+            Assert.IsNotNull(records);
+            Assert.AreEqual(2, records.Count);
+            Assert.AreEqual(0, records[0].IntColumn);
+            Assert.AreEqual("one", records[0].StringColumn);
+            Assert.AreEqual(0, records[1].IntColumn);
+            Assert.AreEqual("two", records[1].StringColumn);
+        }
+
+        private class CovarianceClass
 		{
 			public int? Id { get; set; }
 		}
 
-		private sealed class CovarianceClassMap : CsvClassMap<CovarianceClass>
+		private sealed class CovarianceClassMap : ClassMap<CovarianceClass>
 		{
 			public CovarianceClassMap()
 			{
 				Map( m => m.Id ).ConvertUsing( row => row.GetField<int>( 0 ) );
 			}
 		}
+
+		private class ContravarianceClass
+		{
+			public int Id { get; set; }
+		}
+
+		// This isn't possible anymore.
+		//private sealed class ContravarianceClassMap : CsvClassMap<ContravarianceClass>
+		//{
+		//	public ContravarianceClassMap()
+		//	{
+		//		Map( m => m.Id ).ConvertUsing( row => row.GetField<int?>( 0 ) );
+		//	}
+		//}
 
 		private class TestClass
 		{
@@ -189,7 +287,7 @@ namespace CsvHelper.Tests
 			public string Name3 { get; set; }
 		}
 
-		private sealed class SameNameMultipleTimesClassMap : CsvClassMap<SameNameMultipleTimesClass>
+		private sealed class SameNameMultipleTimesClassMap : ClassMap<SameNameMultipleTimesClass>
 		{
 			public SameNameMultipleTimesClassMap()
 			{
@@ -206,7 +304,7 @@ namespace CsvHelper.Tests
 			public string StringColumn { get; set; }
 		}
 
-		private sealed class MultipleNamesClassMap : CsvClassMap<MultipleNamesClass>
+		private sealed class MultipleNamesClassMap : ClassMap<MultipleNamesClass>
 		{
 			public MultipleNamesClassMap()
 			{
@@ -215,7 +313,8 @@ namespace CsvHelper.Tests
 			}
 		}
 
-		private class ConstructorMappingClass
+
+        private class ConstructorMappingClass
 		{
 			public int IntColumn { get; set; }
 
@@ -227,16 +326,7 @@ namespace CsvHelper.Tests
 			}
 		}
 
-		private sealed class ConstructorMappingClassMap : CsvClassMap<ConstructorMappingClass>
-		{
-			public ConstructorMappingClassMap()
-			{
-				ConstructUsing( () => new ConstructorMappingClass( "one" ) );
-				Map( m => m.IntColumn ).Index( 0 );
-			}
-		}
-
-		private sealed class ConvertUsingMap : CsvClassMap<TestClass>
+		private sealed class ConvertUsingMap : ClassMap<TestClass>
 		{
 			public ConvertUsingMap()
 			{
@@ -244,7 +334,7 @@ namespace CsvHelper.Tests
 			}
 		}
 
-		private sealed class ConvertUsingBlockMap : CsvClassMap<TestClass>
+		private sealed class ConvertUsingBlockMap : ClassMap<TestClass>
 		{
 			public ConvertUsingBlockMap()
 			{
@@ -257,12 +347,31 @@ namespace CsvHelper.Tests
 			}
 		}
 
-		private sealed class ConvertUsingConstantMap : CsvClassMap<TestClass>
+		private sealed class ConvertUsingConstantMap : ClassMap<TestClass>
 		{
 			public ConvertUsingConstantMap()
 			{
 				Map( m => m.IntColumn ).ConvertUsing( row => 1 );
 			}
 		}
-	}
+
+		private sealed class ConvertUsingClassMap : ClassMap<MultipleNamesClass>
+		{
+			public ConvertUsingClassMap()
+			{
+				Map( m => m.IntColumn ).Name( "int2" );
+				Map( m => m.StringColumn ).ConvertUsing( row => row.GetField( "string.3" ) );
+			}
+		}
+
+        private sealed class OptionalFieldClassMap : ClassMap<MultipleNamesClass>
+        {
+            public OptionalFieldClassMap()
+            {
+                Map(m => m.IntColumn).Name("int").Optional();
+                Map(m => m.StringColumn).Name("string");
+            }
+        }
+
+    }
 }

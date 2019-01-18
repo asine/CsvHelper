@@ -1,15 +1,13 @@
-﻿// Copyright 2009-2015 Josh Close and Contributors
+﻿// Copyright 2009-2019 Josh Close and Contributors
 // This file is a part of CsvHelper and is dual licensed under MS-PL and Apache 2.0.
 // See LICENSE.txt for details or visit http://www.opensource.org/licenses/ms-pl.html for MS-PL and http://opensource.org/licenses/Apache-2.0 for Apache 2.0.
-// http://csvhelper.com
+// https://github.com/JoshClose/CsvHelper
 using System;
 using System.Globalization;
+using CsvHelper.Configuration;
 using CsvHelper.TypeConversion;
-#if WINRT_4_5
-using Microsoft.VisualStudio.TestPlatform.UnitTestFramework;
-#else
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-#endif
+using Moq;
 
 namespace CsvHelper.Tests.TypeConversion
 {
@@ -20,20 +18,21 @@ namespace CsvHelper.Tests.TypeConversion
 		public void ConvertToStringTest()
 		{
 			var converter = new TimeSpanConverter();
-			var typeConverterOptions = new TypeConverterOptions
+			var propertyMapData = new MemberMapData( null )
 			{
-				CultureInfo = CultureInfo.CurrentCulture
+				TypeConverter = converter,
+				TypeConverterOptions = { CultureInfo = CultureInfo.CurrentCulture }
 			};
 
 			var dateTime = DateTime.Now;
 			var timeSpan = new TimeSpan( dateTime.Hour, dateTime.Minute, dateTime.Second, dateTime.Millisecond );
 
 			// Valid conversions.
-			Assert.AreEqual( timeSpan.ToString(), converter.ConvertToString( typeConverterOptions, timeSpan ) );
+			Assert.AreEqual( timeSpan.ToString(), converter.ConvertToString( timeSpan, null, propertyMapData ) );
 
 			// Invalid conversions.
-			Assert.AreEqual( "1", converter.ConvertToString( typeConverterOptions, 1 ) );
-			Assert.AreEqual( "", converter.ConvertToString( typeConverterOptions, null ) );
+			Assert.AreEqual( "1", converter.ConvertToString( 1, null, propertyMapData ) );
+			Assert.AreEqual( "", converter.ConvertToString( null, null, propertyMapData ) );
 		}
 		
 		[TestMethod]
@@ -42,10 +41,9 @@ namespace CsvHelper.Tests.TypeConversion
 			var converter = new TimeSpanConverter();
 			var cmConverter = new System.ComponentModel.TimeSpanConverter();
 
-			var typeConverterOptions = new TypeConverterOptions
-			{
-				CultureInfo = CultureInfo.CurrentCulture
-			};
+			var propertyMapData = new MemberMapData( null );
+			propertyMapData.TypeConverterOptions.CultureInfo = CultureInfo.CurrentCulture;
+			var rowMock = new Mock<IReaderRow>();
 
 			try
 			{
@@ -56,10 +54,10 @@ namespace CsvHelper.Tests.TypeConversion
 
 			try
 			{
-				var val = (DateTime)converter.ConvertFromString( typeConverterOptions, "" );
+				var val = (DateTime)converter.ConvertFromString( "", rowMock.Object, propertyMapData );
 				Assert.Fail();
 			}
-			catch( CsvTypeConverterException ) {}
+			catch( TypeConverterException ) {}
 
 			try
 			{
@@ -70,10 +68,10 @@ namespace CsvHelper.Tests.TypeConversion
 
 			try
 			{
-				converter.ConvertFromString( typeConverterOptions, null );
+				converter.ConvertFromString( null, rowMock.Object, propertyMapData );
 				Assert.Fail();
 			}
-			catch( CsvTypeConverterException ) { }
+			catch( TypeConverterException ) { }
 		}
 	}
 }

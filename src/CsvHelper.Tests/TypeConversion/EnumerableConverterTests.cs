@@ -1,18 +1,16 @@
-﻿// Copyright 2009-2015 Josh Close and Contributors
+﻿// Copyright 2009-2019 Josh Close and Contributors
 // This file is a part of CsvHelper and is dual licensed under MS-PL and Apache 2.0.
 // See LICENSE.txt for details or visit http://www.opensource.org/licenses/ms-pl.html for MS-PL and http://opensource.org/licenses/Apache-2.0 for Apache 2.0.
-// http://csvhelper.com
+// https://github.com/JoshClose/CsvHelper
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
-#if WINRT_4_5
-using Microsoft.VisualStudio.TestPlatform.UnitTestFramework;
-#else
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-#endif
 using System.IO;
+using CsvHelper.Configuration;
 using CsvHelper.Tests.Mocks;
 using CsvHelper.TypeConversion;
+using Moq;
 
 namespace CsvHelper.Tests.TypeConversion
 {
@@ -23,67 +21,29 @@ namespace CsvHelper.Tests.TypeConversion
 		public void ConvertTest()
 		{
 			var converter = new EnumerableConverter();
-			var typeConverterOptions = new TypeConverterOptions
-			{
-				CultureInfo = CultureInfo.CurrentCulture
-			};
 
-			Assert.IsTrue( converter.CanConvertFrom( typeof( string ) ) );
-			Assert.IsTrue( converter.CanConvertTo( typeof( string ) ) );
+			var propertyMapData = new MemberMapData( null );
+			propertyMapData.TypeConverterOptions.CultureInfo = CultureInfo.CurrentCulture;
+
+			var mockReaderRow = new Mock<IReaderRow>();
+			var mockWriterRow = new Mock<IWriterRow>();
+
 			try
 			{
-				converter.ConvertFromString( typeConverterOptions, "" );
+				converter.ConvertFromString( "", mockReaderRow.Object, propertyMapData );
 				Assert.Fail();
 			}
-			catch( CsvTypeConverterException )
+			catch( TypeConverterException )
 			{
 			}
 			try
 			{
-				converter.ConvertToString( typeConverterOptions, 5 );
+				converter.ConvertToString( 5, mockWriterRow.Object, propertyMapData );
 				Assert.Fail();
 			}
-			catch( CsvTypeConverterException )
+			catch( TypeConverterException )
 			{
 			}
-		}
-
-		[TestMethod]
-		public void ReadTest()
-		{
-			var queue = new Queue<string[]>();
-			queue.Enqueue( new[] { "Id", "Names" } );
-			queue.Enqueue( new[] { "1", "one" } );
-			queue.Enqueue( null );
-			var parserMock = new ParserMock( queue );
-			var csv = new CsvReader( parserMock );
-			csv.Read();
-			var record = csv.GetRecord<Test>();
-			Assert.IsNull( record.Names );
-		}
-
-		[TestMethod]
-		public void WriteTest()
-		{
-			using( var stream = new MemoryStream() )
-			using( var reader = new StreamReader( stream ) )
-			using( var writer = new StreamWriter( stream ) )
-			using( var csv = new CsvWriter( writer ) )
-			{
-				var test = new Test { Id = 1, Names = new List<int> { 1, 2 } };
-				csv.WriteRecord( test );
-				writer.Flush();
-				stream.Position = 0;
-
-				var data = reader.ReadToEnd();
-				Assert.AreEqual( "1\r\n", data );
-			}
-		}
-
-		private class Test
-		{
-			public int Id { get; set; }
-			public List<int> Names { get; set; }
 		}
 	}
 }

@@ -1,15 +1,13 @@
-﻿// Copyright 2009-2015 Josh Close and Contributors
+﻿// Copyright 2009-2019 Josh Close and Contributors
 // This file is a part of CsvHelper and is dual licensed under MS-PL and Apache 2.0.
 // See LICENSE.txt for details or visit http://www.opensource.org/licenses/ms-pl.html for MS-PL and http://opensource.org/licenses/Apache-2.0 for Apache 2.0.
-// http://csvhelper.com
+// https://github.com/JoshClose/CsvHelper
 using System;
 using System.Globalization;
+using CsvHelper.Configuration;
 using CsvHelper.TypeConversion;
-#if WINRT_4_5
-using Microsoft.VisualStudio.TestPlatform.UnitTestFramework;
-#else
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-#endif
+using Moq;
 
 namespace CsvHelper.Tests.TypeConversion
 {
@@ -20,34 +18,36 @@ namespace CsvHelper.Tests.TypeConversion
 		public void ConvertToStringTest()
 		{
 			var converter = new ByteConverter();
-			var typeConverterOptions = new TypeConverterOptions
+			var propertyMapData = new MemberMapData( null )
 			{
-				CultureInfo = CultureInfo.CurrentCulture
+				TypeConverter = converter,
+				TypeConverterOptions = { CultureInfo = CultureInfo.CurrentCulture }
 			};
 
-			Assert.AreEqual( "123", converter.ConvertToString( typeConverterOptions, (byte)123 ) );
+			Assert.AreEqual( "123", converter.ConvertToString( (byte)123, null, propertyMapData ) );
 
-			Assert.AreEqual( "", converter.ConvertToString( typeConverterOptions, null ) );
+			Assert.AreEqual( "", converter.ConvertToString( null, null, propertyMapData ) );
 		}
 
 		[TestMethod]
 		public void ConvertFromStringTest()
 		{
 			var converter = new ByteConverter();
-			var typeConverterOptions = new TypeConverterOptions
-			{
-				CultureInfo = CultureInfo.CurrentCulture
-			};
 
-			Assert.AreEqual( (byte)123, converter.ConvertFromString( typeConverterOptions, "123" ) );
-			Assert.AreEqual( (byte)123, converter.ConvertFromString( typeConverterOptions, " 123 " ) );
+			var propertyMapData = new MemberMapData( null );
+			propertyMapData.TypeConverterOptions.CultureInfo = CultureInfo.CurrentCulture;
+
+			var mockRow = new Mock<IReaderRow>();
+
+			Assert.AreEqual( (byte)123, converter.ConvertFromString( "123", null, propertyMapData ) );
+			Assert.AreEqual( (byte)123, converter.ConvertFromString( " 123 ", null, propertyMapData ) );
 
 			try
 			{
-				converter.ConvertFromString( typeConverterOptions, null );
+				converter.ConvertFromString( null, mockRow.Object, propertyMapData );
 				Assert.Fail();
 			}
-			catch( CsvTypeConverterException )
+			catch( TypeConverterException )
 			{
 			}
 		}
